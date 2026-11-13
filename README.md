@@ -32,50 +32,89 @@ Việc học phát âm tiếng Anh chuẩn đóng vai trò quyết định trong
 
 ## 🏗️ 2. KIẾN TRÚC MÔ HÌNH VÀ LUỒNG NHẬN DẠNG (ASR ARCHITECTURE)
 
-Mô hình được thiết kế theo kiến trúc lai (Hybrid Deep Learning Architecture) gồm 4 khối thành phần chính:
+### 2.1. Sơ đồ kiến trúc tổng thể mô hình ASR End-to-End
+Mô hình kết hợp trích xuất đặc trưng cục bộ bằng CNN và mô hình hóa quan hệ ngữ cảnh chuỗi dài bằng Transformer Encoder:
 
-```text
-       [ Tín hiệu âm thanh đầu vào: 80-channel Log-Mel Spectrogram ]
-                                      │
-                                      ▼
-     ┌─────────────────────────────────────────────────────────────┐
-     │ 1. Khối CNN Subsampling (2D Convolutions + Striding)        │ 
-     │    Trích xuất đặc trưng cục bộ, giảm chiều thời gian 4 lần  │
-     └──────────────────────────────┬──────────────────────────────┘
-                                      │
-                                      ▼
-     ┌─────────────────────────────────────────────────────────────┐
-     │ 2. Lớp Linear Projection & Positional Encoding (Sin/Cos)    │ 
-     │    Chiếu về không gian ẩn d_model = 512, nhúng thứ tự vị trí│
-     └──────────────────────────────┬──────────────────────────────┘
-                                      │
-                                      ▼
-     ┌─────────────────────────────────────────────────────────────┐
-     │ 3. Khối Transformer Encoder (8 Layers, 8 Heads, d_ff=2048)  │ 
-     │    Cơ chế Multi-Head Self-Attention học ngữ cảnh toàn cục   │
-     └──────────────────────────────┬──────────────────────────────┘
-                                      │
-                                      ▼
-     ┌─────────────────────────────────────────────────────────────┐
-     │ 4. Lớp Phân Loại Linear Head + CTC Loss & CTC Decoding      │ 
-     │    - Greedy Search (Argmax) cho tốc độ suy luận tức thời    │
-     │    - Prefix Beam Search cho độ chính xác cao                │
-     └──────────────────────────────┬──────────────────────────────┘
-                                      │
-                                      ▼
-     ┌─────────────────────────────────────────────────────────────┐
-     │      Văn bản nhận dạng cuối cùng (WER / CER Evaluation)     │
-     └─────────────────────────────────────────────────────────────┘
-```
+<div align="center">
+  <img src="./docs/images/image2.png" alt="Kiến trúc tổng thể mô hình ASR End-to-End" width="90%">
+  <p><em>Hình 2.1 – Kiến trúc tổng thể mô hình ASR End-to-End (CNN + Transformer Encoder + CTC).</em></p>
+</div>
+
+### 2.2. Biểu diễn phổ âm thanh Log-Mel Spectrogram
+Tín hiệu âm thanh dạng sóng được phân tích Fourier ngắn hạn (STFT) thành dạng phổ Mel 80 kênh làm đầu vào cho mạng:
+
+<div align="center">
+  <img src="./docs/images/image3.png" alt="Biểu diễn Log-Mel Spectrogram" width="85%">
+  <p><em>Hình 2.2 – Biểu diễn ma trận Log-Mel Spectrogram từ tệp âm thanh phát âm mẫu.</em></p>
+</div>
+
+### 2.3. Khối CNN Subsampling và Feature Maps trích xuất
+Khối tích chập 2D (Conv2D) kết hợp bước nhảy (stride) giúp giảm 4 lần chiều thời gian và trích xuất các đặc trưng âm học cơ sở:
+
+<div align="center">
+  <img src="./docs/images/image6.png" alt="Biểu diễn feature maps sau CNN" width="85%">
+  <p><em>Hình 2.3 – Biểu diễn các bản đồ đặc trưng (Feature Maps) qua các kênh tích chập CNN.</em></p>
+</div>
+
+### 2.4. Khối Chiếu không gian Linear Projection và Giải mã Beam Search
+Vector đặc trưng sau CNN được chiếu về kích thước ẩn $d_{model} = 512$ trước khi đưa vào các tầng Self-Attention:
+
+<div align="center">
+  <img src="./docs/images/image7.png" alt="Khối Linear Projection" width="80%">
+  <p><em>Hình 2.4 – Cấu trúc khối Linear Projection ánh xạ không gian đặc trưng âm học.</em></p>
+</div>
+
+<div align="center">
+  <img src="./docs/images/image8.png" alt="Thuật toán giải mã Beam Search" width="85%">
+  <p><em>Hình 2.5 – Sơ đồ cây tìm kiếm của thuật toán giải mã Prefix Beam Search kết hợp mô hình ngôn ngữ.</em></p>
+</div>
 
 ---
 
-## 📂 3. CẤU TRÚC THƯ MỤC DỰ ÁN
+## 📱 3. KẾT QUẢ THỰC NGHIỆM VÀ DEMO ỨNG DỤNG THỰC TẾ
+
+### 3.1. Kết quả kiểm tra bộ mã hóa ký tự (Tokenizer) và nhận dạng mẫu
+Quá trình mã hóa và giải mã từ điển ký tự tùy biến đảm bảo khớp chính xác giữa nhãn âm học và chuỗi văn bản:
+
+<div align="center">
+  <img src="./docs/images/image4.png" alt="Kiểm tra bộ mã hóa ký tự" width="85%">
+  <p><em>Hình 3.1 – Kết quả thực nghiệm kiểm tra bộ mã hóa ký tự (Character-level Tokenizer).</em></p>
+</div>
+
+<div align="center">
+  <img src="./docs/images/image10.png" alt="Kết quả nhận dạng mẫu" width="85%">
+  <p><em>Hình 3.2 – Mẫu kết quả nhận dạng so khớp chuỗi phát âm thực tế so với văn bản gốc.</em></p>
+</div>
+
+### 3.2. Kiến trúc hệ thống ứng dụng và Sơ đồ trình tự tương tác (Sequence Diagram)
+<div align="center">
+  <img src="./docs/images/image11.png" alt="Kiến trúc hệ thống ứng dụng" width="85%">
+  <p><em>Hình 3.3 – Kiến trúc tổng thể hệ thống ứng dụng học phát âm trên nền tảng di động và backend AI.</em></p>
+</div>
+
+<div align="center">
+  <img src="./docs/images/image12.png" alt="Sơ đồ trình tự luồng luyện phát âm" width="85%">
+  <p><em>Hình 3.4 – Sơ đồ trình tự (Sequence Diagram) luồng nhận dạng phát âm và tư vấn sửa lỗi qua AI.</em></p>
+</div>
+
+### 3.3. Giao diện thực tế của ứng dụng di động hỗ trợ học phát âm
+Ứng dụng hoàn chỉnh tích hợp mô-đun nhận dạng giọng nói tức thời và trợ lý học tập đàm thoại thông minh:
+
+<div align="center">
+  <img src="./docs/images/image15.png" alt="Giao diện ASR Transcribe" width="45%">
+  <img src="./docs/images/image18.png" alt="Giao diện Trợ lý học tập thông minh" width="45%">
+  <p><em>Hình 3.5 – Giao diện module ASR Transcribe ghi âm nhận dạng (trái) và Trợ lý học tập thông minh tương tác giọng nói (phải).</em></p>
+</div>
+
+---
+
+## 📂 4. CẤU TRÚC THƯ MỤC DỰ ÁN
 
 ```text
 ASR_model/
 ├── docs/                                      # Tài liệu & Báo cáo nghiên cứu khoa học học thuật
-│   └── Bao_Cao_NCKH_ASR_Model.docx            # Bản báo cáo nghiên cứu chi tiết nộp Hội đồng NCKH
+│   ├── Bao_Cao_NCKH_ASR_Model.docx            # Bản báo cáo nghiên cứu chi tiết nộp Hội đồng NCKH
+│   └── images/                                # Toàn bộ sơ đồ kiến trúc, feature maps & ảnh giao diện demo
 ├── src/                                       # Mã nguồn lõi của mô hình ASR
 │   ├── models/                                # Kiến trúc mô hình mạng nơ-ron
 │   │   ├── asr_model.py                       # CNN + Linear Projection + Positional Encoding + Transformer Encoder
@@ -100,9 +139,9 @@ ASR_model/
 
 ---
 
-## 🚀 4. HƯỚNG DẪN CÀI ĐẶT VÀ CHẠY THỰC NGHIỆM
+## 🚀 5. HƯỚNG DẪN CÀI ĐẶT VÀ CHẠY THỰC NGHIỆM
 
-### 4.1. Cài đặt môi trường
+### 5.1. Cài đặt môi trường
 ```bash
 # Clone kho lưu trữ
 git clone https://github.com/pquang0407/ASR_model.git
@@ -117,7 +156,7 @@ source venv/bin/activate  # Trên Linux/macOS
 pip install -r requirements.txt
 ```
 
-### 4.2. Chạy thử nghiệm nhận dạng giọng nói (Inference)
+### 5.2. Chạy thử nghiệm nhận dạng giọng nói (Inference)
 - **Phương pháp 1 – Giải mã tham lam (Greedy Search - Tốc độ cao):**
   ```bash
   python src/inference.py --audio_path data/sample.wav --model_path weights/asr_checkpoint.pt
@@ -127,14 +166,14 @@ pip install -r requirements.txt
   python src/inference_beam.py --audio_path data/sample.wav --model_path weights/asr_checkpoint.pt --beam_width 5
   ```
 
-### 4.3. Đánh giá chất lượng mô hình (WER / CER)
+### 5.3. Đánh giá chất lượng mô hình (WER / CER)
 ```bash
 python src/evaluate.py --test_data data/test_manifest.csv --model_path weights/asr_checkpoint.pt
 ```
 
 ---
 
-## 👥 5. NHÓM TÁC GIẢ & VAI TRÒ THỰC HIỆN
+## 👥 6. NHÓM TÁC GIẢ & VAI TRÒ THỰC HIỆN
 
 Đề tài Nghiên cứu Khoa học Sinh viên được bảo vệ thành công trước Hội đồng Khoa học Khoa Công nghệ Thông tin – Trường Đại học Thủy Lợi (Phân hiệu TP. Hồ Chí Minh):
 
